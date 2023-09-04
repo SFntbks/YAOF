@@ -140,5 +140,5 @@ jobs:
         tag: ${{ env.latest_release }}
         commit: 23.05
         replacesArtifacts: true
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.UPLOAD }}
         artifacts: ./artifact/*.zip
