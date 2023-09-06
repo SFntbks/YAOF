@@ -4,7 +4,28 @@ clear
 ### 基础部分 ###
 # 使用 O2 级别的优化
 sed -i 's/Os/O2/g' include/target.mk
-# 更新 Feeds
+# 更新 Feeds、添加turboacc
+mkdir -p turboacc_tmp ./package/turboacc
+cd turboacc_tmp 
+git clone https://github.com/chenmozhijin/turboacc -b package
+cd ../package/turboacc
+git clone https://github.com/fullcone-nat-nftables/nft-fullcone
+git clone https://github.com/chenmozhijin/turboacc
+mv ./turboacc/luci-app-turboacc ./luci-app-turboacc
+rm -rf ./turboacc
+cd ../..
+cp -f turboacc_tmp/turboacc/hack-5.15/952-add-net-conntrack-events-support-multiple-registrant.patch ./target/linux/generic/hack-5.15/952-add-net-conntrack-events-support-multiple-registrant.patch
+cp -f turboacc_tmp/turboacc/hack-5.15/953-net-patch-linux-kernel-to-support-shortcut-fe.patch ./target/linux/generic/hack-5.15/953-net-patch-linux-kernel-to-support-shortcut-fe.patch
+cp -f turboacc_tmp/turboacc/pending-5.15/613-netfilter_optional_tcp_window_check.patch ./target/linux/generic/pending-5.15/613-netfilter_optional_tcp_window_check.patch
+rm -rf ./package/libs/libnftnl ./package/network/config/firewall4 ./package/network/utils/nftables
+mkdir -p ./package/network/config/firewall4 ./package/libs/libnftnl ./package/network/utils/nftables
+cp -r ./turboacc_tmp/turboacc/shortcut-fe ./package/turboacc
+cp -RT ./turboacc_tmp/turboacc/firewall4-$(grep -o 'FIREWALL4_VERSION=.*' ./turboacc_tmp/turboacc/version | cut -d '=' -f 2)/firewall4 ./package/network/config/firewall4
+cp -RT ./turboacc_tmp/turboacc/libnftnl-$(grep -o 'LIBNFTNL_VERSION=.*' ./turboacc_tmp/turboacc/version | cut -d '=' -f 2)/libnftnl ./package/libs/libnftnl
+cp -RT ./turboacc_tmp/turboacc/nftables-$(grep -o 'NFTABLES_VERSION=.*' ./turboacc_tmp/turboacc/version | cut -d '=' -f 2)/nftables ./package/network/utils/nftables
+rm -rf turboacc_tmp
+echo "# CONFIG_NF_CONNTRACK_CHAIN_EVENTS is not set" >> target/linux/generic/config-5.15
+echo "# CONFIG_SHORTCUT_FE is not set" >> target/linux/generic/config-5.15
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 # 默认开启 Irqbalance
@@ -54,36 +75,7 @@ wget -qO - https://github.com/coolsnowwolf/lede/commit/8a4db76.patch | patch -p1
 # wg
 cp -rf ../PATCH/wg/* ./target/linux/generic/hack-5.15/
 
-### Fullcone-NAT 部分 ###
-# Patch Kernel 以解决 FullCone 冲突
-cp -rf ../lede/target/linux/generic/hack-5.15/952-add-net-conntrack-events-support-multiple-registrant.patch ./target/linux/generic/hack-5.15/952-add-net-conntrack-events-support-multiple-registrant.patch
-cp -rf ../lede/target/linux/generic/hack-5.15/982-add-bcm-fullconenat-support.patch ./target/linux/generic/hack-5.15/982-add-bcm-fullconenat-support.patch
-# Patch FireWall 以增添 FullCone 功能
-# FW4
-mkdir -p package/network/config/firewall4/patches
-cp -f ../PATCH/firewall/001-fix-fw4-flow-offload.patch ./package/network/config/firewall4/patches/001-fix-fw4-flow-offload.patch
-cp -f ../PATCH/firewall/990-unconditionally-allow-ct-status-dnat.patch ./package/network/config/firewall4/patches/990-unconditionally-allow-ct-status-dnat.patch
-cp -f ../PATCH/firewall/999-01-firewall4-add-fullcone-support.patch ./package/network/config/firewall4/patches/999-01-firewall4-add-fullcone-support.patch
-mkdir -p package/libs/libnftnl/patches
-cp -f ../PATCH/firewall/libnftnl/001-libnftnl-add-fullcone-expression-support.patch ./package/libs/libnftnl/patches/001-libnftnl-add-fullcone-expression-support.patch
-sed -i '/PKG_INSTALL:=/iPKG_FIXUP:=autoreconf' package/libs/libnftnl/Makefile
-mkdir -p package/network/utils/nftables/patches
-cp -f ../PATCH/firewall/nftables/002-nftables-add-fullcone-expression-support.patch ./package/network/utils/nftables/patches/002-nftables-add-fullcone-expression-support.patch
-# FW3
-mkdir -p package/network/config/firewall/patches
-cp -rf ../immortalwrt_21/package/network/config/firewall/patches/100-fullconenat.patch ./package/network/config/firewall/patches/100-fullconenat.patch
-cp -rf ../lede/package/network/config/firewall/patches/101-bcm-fullconenat.patch ./package/network/config/firewall/patches/101-bcm-fullconenat.patch
-# iptables
-cp -rf ../lede/package/network/utils/iptables/patches/900-bcm-fullconenat.patch ./package/network/utils/iptables/patches/900-bcm-fullconenat.patch
-# network
-wget -qO - https://github.com/openwrt/openwrt/commit/bbf39d07.patch | patch -p1
-# Patch LuCI 以增添 FullCone 开关
-pushd feeds/luci
-patch -p1 <../../../PATCH/firewall/luci-app-firewall_add_fullcone_fw4.patch
-popd
-# FullCone PKG
-git clone --depth 1 https://github.com/fullcone-nat-nftables/nft-fullcone package/new/nft-fullcone
-cp -rf ../Lienol/package/network/utils/fullconenat ./package/new/fullconenat
+
 
 ### 获取额外的基础软件包 ###
 # 更换为 ImmortalWrt Uboot 以及 Target
@@ -466,28 +458,6 @@ cp -rf ../OpenWrt-Add/fuck ./package/base-files/files/usr/bin/fuck
 rm -rf .config
 sed -i 's,CONFIG_WERROR=y,# CONFIG_WERROR is not set,g' target/linux/generic/config-5.15
 
-### Shortcut-FE 部分 ###
-# Patch Kernel 以支持 Shortcut-FE
-cp -rf ../lede/target/linux/generic/hack-5.15/953-net-patch-linux-kernel-to-support-shortcut-fe.patch ./target/linux/generic/hack-5.15/953-net-patch-linux-kernel-to-support-shortcut-fe.patch
-cp -rf ../lede/target/linux/generic/pending-5.15/613-netfilter_optional_tcp_window_check.patch ./target/linux/generic/pending-5.15/613-netfilter_optional_tcp_window_check.patch
-# Patch LuCI 以增添 Shortcut-FE 开关
-patch -p1 < ../PATCH/firewall/luci-app-firewall_add_sfe_switch.patch
-# Shortcut-FE 相关组件
-mkdir ./package/lean
-mkdir ./package/lean/shortcut-fe
-cp -rf ../lede/package/lean/shortcut-fe/fast-classifier ./package/lean/shortcut-fe/fast-classifier
-wget -qO - https://github.com/coolsnowwolf/lede/commit/331f04f.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/232b8b4.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/ec795c9.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/789f805.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/6398168.patch | patch -p1
-cp -rf ../lede/package/lean/shortcut-fe/shortcut-fe ./package/lean/shortcut-fe/shortcut-fe
-wget -qO - https://github.com/coolsnowwolf/lede/commit/0e29809.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/eb70dad.patch | patch -p1
-wget -qO - https://github.com/coolsnowwolf/lede/commit/7ba3ec0.patch | patch -p1
-cp -rf ../lede/package/lean/shortcut-fe/simulated-driver ./package/lean/shortcut-fe/simulated-driver
-
-#turboacc
 
 #LTO/GC
 # Grub 2
