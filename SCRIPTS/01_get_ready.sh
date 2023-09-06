@@ -39,7 +39,7 @@ zxlhhyccc_repo="https://github.com/zxlhhyccc/bf-package-master"
 linkease_repo="https://github.com/linkease/openwrt-app-actions"
 linkease_pkg_repo="https://github.com/jjm2473/packages"
 linkease_luci_repo="https://github.com/jjm2473/luci"
-turboacc_luci_repo="https://github.com/chenmozhijin/turboacc"
+turboacc_repo="https://github.com/chenmozhijin/turboacc"
 
 # 开始克隆仓库，并行执行
 clone_repo $openwrt_repo $latest_release openwrt &
@@ -75,7 +75,7 @@ clone_repo $zxlhhyccc_repo main zxlhhyccc &
 clone_repo $linkease_repo main linkease &
 clone_repo $linkease_pkg_repo istoreos-21.02 linkease_pkg &
 clone_repo $linkease_luci_repo istoreos-21.02 linkease_luci &
-clone_repo $turboacc_luci_repo master turboacc_luci &
+clone_repo $turboacc_repo master turboacc &
 
 # 等待所有后台任务完成
 wait
